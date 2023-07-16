@@ -1,0 +1,26 @@
+[package]
+name = "waylrc"
+version = "1.0.0"
+edition = "2021"
+authors = ["hafeoz <me@akatony.com>"]
+description = "A Waybar module to display currently playing song lyrics"
+readme = "README.md"
+repository = "https://github.com/hafeoz/waylrc"
+license = "CC0-1.0 OR WTFPL"
+
+[dependencies]
+thiserror = "1.0.43"
+tracing = { version = "0.1.37", features = ["max_level_trace", "release_max_level_warn"] }
+tracing-subscriber = "0.3.17"
+mpris = "2.0.1"
+clap = { version = "4.3.11", features = ["derive"] }
+serde = { version = "1.0.171", features = ["derive"] }
+serde_json = "1.0.102"
+itertools = "0.11.0"
+regex = "1.9.1"
+lofty = "0.15.0"
+html-escape = "0.2.13"
+
+[profile.release]
+codegen-units = 1
+lto = true
