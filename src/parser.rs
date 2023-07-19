@@ -165,9 +165,8 @@ impl Lrc {
                         if last_timestamp.as_ref() > parsed_line.time.as_ref() {
                             // If the last timestamp is greater than the current timestamp, we have a new "version" and should start a new vector.
                             versions.push(Vec::new());
-                        } else {
-                            last_timestamp = parsed_line.time;
                         }
+                        last_timestamp = parsed_line.time;
                     }
                     // Unwrap: we're starting with one element in the vector.
                     let version = versions.last_mut().unwrap();
