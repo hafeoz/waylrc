@@ -1,4 +1,3 @@
-#![feature(result_option_inspect)]
 #![warn(
     clippy::pedantic,
     clippy::negative_feature_names,
