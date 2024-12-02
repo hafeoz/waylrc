@@ -54,7 +54,7 @@ impl SongInfo {
         let url = metadata
             .url()
             .and_then(|s| s.strip_prefix("file://"))
-            .map(str::to_owned);
+            .map(|s| s.replace("%20", " "));
         let lyrics = url.and_then(|url| {
             // First, try to load external lyrics
             let lrc_url = PathBuf::from(&url).with_extension("lrc");
