@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use itertools::Itertools;
 use lofty::TaggedFileExt;
 use mpris::{DBusError, Metadata, Player, PlayerFinder};
+use percent_encoding::percent_decode;
 
 use crate::{out::WaybarCustomModule, parser::Lrc};
 
@@ -54,7 +55,8 @@ impl SongInfo {
         let url = metadata
             .url()
             .and_then(|s| s.strip_prefix("file://"))
-            .map(|s| s.replace("%20", " "));
+            .map(|s| percent_decode(s.as_bytes()).decode_utf8_lossy().to_string());
+
         let lyrics = url.and_then(|url| {
             // First, try to load external lyrics
             let lrc_url = PathBuf::from(&url).with_extension("lrc");

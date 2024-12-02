@@ -20,6 +20,7 @@ itertools = "0.11.0"
 regex = "1.9.1"
 lofty = "0.15.0"
 html-escape = "0.2.13"
+percent-encoding = "2.3.1"
 
 [profile.release]
 codegen-units = 1
