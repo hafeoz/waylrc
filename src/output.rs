@@ -1,3 +1,4 @@
+use html_escape::encode_text;
 use serde::Serialize;
 use std::io::{self, Write};
 
@@ -17,7 +18,17 @@ pub struct WaybarCustomModule {
 }
 
 impl WaybarCustomModule {
-    /// Create a new module with the given contents.
+    /// Create a new module with empty content
+    pub const fn empty() -> Self {
+        Self {
+            text: Some(String::new()),
+            alt: None,
+            tooltip: None,
+            class: None,
+            percentage: None,
+        }
+    }
+    /// Create a new module with the given content.
     pub fn new(
         text: Option<&str>,
         alt: Option<&str>,
@@ -26,10 +37,10 @@ impl WaybarCustomModule {
         percentage: Option<usize>,
     ) -> Self {
         Self {
-            text: text.map(html_escape::encode_text).map(String::from),
-            alt: alt.map(html_escape::encode_text).map(String::from),
-            tooltip: tooltip.map(html_escape::encode_text).map(String::from),
-            class: class.map(html_escape::encode_text).map(String::from),
+            text: text.map(encode_text).map(String::from),
+            alt: alt.map(encode_text).map(String::from),
+            tooltip: tooltip.map(encode_text).map(String::from),
+            class: class.map(encode_text).map(String::from),
             percentage,
         }
     }
