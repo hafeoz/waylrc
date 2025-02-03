@@ -2,7 +2,7 @@ mod scanner;
 mod update_listener;
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     future::{pending, Pending},
     ops::Deref,
     pin::Pin,
@@ -34,7 +34,7 @@ struct CurrentPlayerState {
     next_lrc_timetag: TimeTag,
 }
 
-pub async fn event_loop(conn: Connection, refresh_interval: Duration) -> Result<()> {
+pub async fn event_loop(conn: Connection, refresh_interval: Duration, filter_keys: HashSet<String>) -> Result<()> {
     let mut dbus_stream = player_buses(&conn).await?;
 
     let (player_update_sender, mut player_update_receiver) = mpsc::channel(1);
@@ -61,7 +61,7 @@ pub async fn event_loop(conn: Connection, refresh_interval: Duration) -> Result<
         WaybarCustomModule::new(
             Some(&lrc_line.join(" ")),
             None,
-            Some(&info.format_metadata()),
+            Some(&info.format_metadata(&filter_keys)),
             None,
             None,
         )
@@ -178,7 +178,7 @@ pub async fn event_loop(conn: Connection, refresh_interval: Duration) -> Result<
                 let (lrc, next_timetag) = player.lrc.get(&player.next_lrc_timetag);
                 tracing::debug!(%player.bus, ?lrc, ?next_timetag, "Printing lyric");
                 let player_info = &available_players[&player.bus].0;
-                WaybarCustomModule::new(Some(&lrc.join(" ")), None, Some(&player_info.format_metadata()), None, None).print().unwrap();
+                WaybarCustomModule::new(Some(&lrc.join(" ")), None, Some(&player_info.format_metadata(&filter_keys)), None, None).print().unwrap();
                 match next_timetag {
                     None => current_player_timer = Box::pin(Either::Right(pending())),
                     Some(t) => {

@@ -1,4 +1,9 @@
-use std::{borrow::Cow, collections::HashMap, str::FromStr, time::Instant};
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+    str::FromStr,
+    time::Instant,
+};
 
 use anyhow::{anyhow, Context as _, Result};
 use futures_lite::{stream::Fuse, StreamExt as _};
@@ -83,13 +88,17 @@ impl PlayerInformation {
             zbus::zvariant::Value::Fd(_) => Cow::Borrowed("fd"),
         }
     }
-    pub fn metadata(&self) -> impl Iterator<Item = (&String, Cow<'_, str>)> {
+    pub fn metadata<'a>(
+        &'a self,
+        filter_keys: &'a HashSet<String>,
+    ) -> impl Iterator<Item = (&'a String, Cow<'a, str>)> {
         self.metadata
             .iter()
+            .filter(|(k, _)| filter_keys.get(k.as_str()).is_none())
             .map(|(k, v)| (k, Self::format_value(v)))
     }
-    pub fn format_metadata(&self) -> String {
-        self.metadata()
+    pub fn format_metadata(&self, filter_keys: &HashSet<String>) -> String {
+        self.metadata(filter_keys)
             .map(|(k, v)| format!("{k}: {v}"))
             .collect::<Vec<_>>()
             .join("\n")
@@ -155,10 +164,7 @@ impl PlayerInformation {
     #[must_use]
     pub fn get_current_timetag(&self) -> TimeTag {
         assert!(self.position >= 0, "Negative timetag encountered");
-        TimeTag(
-            Duration::from_micros(self.position as u64)
-                + self.position_last_refresh.elapsed(),
-        )
+        TimeTag(Duration::from_micros(self.position as u64) + self.position_last_refresh.elapsed())
     }
 }
 

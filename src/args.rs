@@ -13,6 +13,11 @@ pub struct Args {
     /// File to write the log to. If not specified, logs will be written to stderr.
     #[clap(long, short)]
     log_file: Option<String>,
+    /// Skip writing metadata with specified key.
+    /// Check `<https://www.freedesktop.org/wiki/Specifications/mpris-spec/metadata/>`
+    /// for a list of common fields.
+    #[clap(long, short, default_values_t = ["xesam:asText".to_string()])]
+    pub skip_metadata: Vec<String>,
 }
 
 impl Args {
@@ -22,7 +27,9 @@ impl Args {
     ///
     /// Panics if the log file cannot be opened.
     pub fn init_tracing_subscriber(&self) {
-        let builder = tracing_subscriber::fmt().pretty().with_env_filter(EnvFilter::from_default_env());
+        let builder = tracing_subscriber::fmt()
+            .pretty()
+            .with_env_filter(EnvFilter::from_default_env());
 
         match self.log_file.as_ref() {
             None => builder.with_writer(io::stderr).init(),
