@@ -7,19 +7,24 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    name: Build and publish as release
+  build:
+    name: Compile and Release
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: ["aarch64-unknown-linux-musl", "loongarch64-unknown-linux-musl", "powerpc64le-unknown-linux-musl", "riscv64gc-unknown-linux-musl", "x86_64-unknown-linux-musl", "arm-unknown-linux-musleabi", "armv5te-unknown-linux-musleabi", "armv7-unknown-linux-musleabi", "i586-unknown-linux-musl", "i686-unknown-linux-musl"]
     steps:
       - name: Checkout
         uses: actions/checkout@master
-      - name: Install Toolchain
+      - name: Install toolchain for target ${{ matrix.target }}
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: x86_64-unknown-linux-musl
-      - name: Build
-        run: cargo build --release --target=x86_64-unknown-linux-musl
+          targets: ${{ matrix.target }}
+      - name: Build for target ${{ matrix.target }}
+        run: cargo build --release "--target=${{ matrix.target }}"
+      - name: Rename build
+        run: mv "target/${{ matrix.target }}/release/waylrc" "target/waylrc-${{ matrix.target }}"
       - name: Release
         uses: softprops/action-gh-release@master
         with:
-          files: target/x86_64-unknown-linux-musl/release/waylrc
+          files: target/waylrc-${{ matrix.target }}
