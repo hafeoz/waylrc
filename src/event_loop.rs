@@ -34,7 +34,11 @@ struct CurrentPlayerState {
     next_lrc_timetag: TimeTag,
 }
 
-pub async fn event_loop(conn: Connection, refresh_interval: Duration, filter_keys: HashSet<String>) -> Result<()> {
+pub async fn event_loop(
+    conn: Connection,
+    refresh_interval: Duration,
+    filter_keys: HashSet<String>,
+) -> Result<()> {
     let mut dbus_stream = player_buses(&conn).await?;
 
     let (player_update_sender, mut player_update_receiver) = mpsc::channel(1);
@@ -135,7 +139,8 @@ pub async fn event_loop(conn: Connection, refresh_interval: Duration, filter_key
                     _ => None
                 };
 
-                if let Some(player) = current_player.take().filter(|p| p.bus == bus_name) {
+                if current_player.as_ref().map(|p| &p.bus) == Some(&bus_name) {
+                    let player = current_player.take().unwrap();
                     // This player is the current player
                     tracing::info!(%bus_name, "Currently active player modified");
                     if scanner::is_player_active(info) {
