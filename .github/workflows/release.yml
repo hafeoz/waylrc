@@ -16,6 +16,7 @@ jobs:
         target: ["aarch64-unknown-linux-gnu", "i686-unknown-linux-gnu", "x86_64-unknown-linux-gnu", "aarch64-unknown-linux-musl", "loongarch64-unknown-linux-musl", "riscv64gc-unknown-linux-musl", "x86_64-unknown-linux-musl", "arm-unknown-linux-musleabi", "arm-unknown-linux-musleabihf", "armv5te-unknown-linux-musleabi", "armv7-unknown-linux-musleabi", "armv7-unknown-linux-musleabihf", "i586-unknown-linux-musl", "i686-unknown-linux-musl"]
         exclude:
           - target: armv5te-unknown-linux-musleabi # fails to compile zvariant-5.2.0
+          - target: riscv64-unknown-linux-musl # https://github.com/cross-rs/cross/issues/1197
     steps:
       - name: Checkout
         uses: actions/checkout@master
