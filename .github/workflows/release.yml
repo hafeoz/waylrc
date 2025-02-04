@@ -13,16 +13,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: ["aarch64-unknown-linux-musl", "loongarch64-unknown-linux-musl", "riscv64gc-unknown-linux-musl", "x86_64-unknown-linux-musl", "arm-unknown-linux-musleabi", "arm-unknown-linux-musleabihf", "armv5te-unknown-linux-musleabi", "armv7-unknown-linux-musleabi", "armv7-unknown-linux-musleabihf", "i586-unknown-linux-musl", "i686-unknown-linux-musl"]
+        target: ["aarch64-unknown-linux-gnu", "i686-unknown-linux-gnu", "x86_64-unknown-linux-gnu", "aarch64-unknown-linux-musl", "loongarch64-unknown-linux-musl", "riscv64gc-unknown-linux-musl", "x86_64-unknown-linux-musl", "arm-unknown-linux-musleabi", "arm-unknown-linux-musleabihf", "armv5te-unknown-linux-musleabi", "armv7-unknown-linux-musleabi", "armv7-unknown-linux-musleabihf", "i586-unknown-linux-musl", "i686-unknown-linux-musl"]
+        exclude:
+          - target: armv5te-unknown-linux-musleabi # fails to compile zvariant-5.2.0
     steps:
       - name: Checkout
         uses: actions/checkout@master
-      - name: Install toolchain for target ${{ matrix.target }}
+      - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
+      - name: Install cross-compilation tools
+        run:  cargo install cross --git https://github.com/cross-rs/cross
       - name: Build for target ${{ matrix.target }}
-        run: cargo build --release "--target=${{ matrix.target }}"
+        run: cross build --release "--target=${{ matrix.target }}"
       - name: Rename build
         run: mv "target/${{ matrix.target }}/release/waylrc" "target/waylrc-${{ matrix.target }}"
       - name: Release
