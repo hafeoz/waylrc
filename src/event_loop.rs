@@ -19,13 +19,14 @@ use tokio::{
     time::{sleep, Sleep},
 };
 use update_listener::get_player_info;
-use zbus::{names::OwnedBusName, zvariant::Value, Connection};
+use zbus::{names::OwnedBusName, Connection};
 
 use crate::{
     dbus::{player_buses, BusActivity, BusChange},
     lrc::{Lrc, TimeTag},
     output::WaybarCustomModule,
     player::PlayerInformation,
+    utils::extract_str,
 };
 
 struct CurrentPlayerState {
@@ -104,9 +105,7 @@ pub async fn event_loop(
                         };
 
                         if scanner::is_player_active(&player_info) && current_player.is_none() {
-                            let Value::Str(audio_url) = player_info.metadata["xesam:url"].deref() else { unreachable!() };
-                            let audio_path = Lrc::audio_url_to_path(audio_url).unwrap();
-                            let lrc = if let Ok(i) = Lrc::from_audio_path(&audio_path) { i } else if let Ok(i) = Lrc::from_lrc_path(&Lrc::audio_path_to_lrc(&audio_path)) { i } else { continue };
+                            let Ok(lrc) =  player_info.get_lyrics().unwrap() else { continue };
                             reload_current_player(Arc::clone(&bus_name), lrc, &player_info, &mut current_player, &mut current_player_timer);
                         }
 
@@ -124,20 +123,14 @@ pub async fn event_loop(
                             }
                         }
                     }
-                };
+                }
             }
             Some((bus_name, player_update)) = player_update_receiver.recv() => {
                 tracing::debug!(%bus_name, ?player_update, "Player status updated");
                 let Some((info, _)) = available_players.get_mut(&bus_name) else { bail!("Attempting to update a non-existent player {bus_name}") };
-                let old_lrc_url = match info.metadata.get("xesam:url").map(Deref::deref) {
-                    Some(Value::Str(u)) => Some(u.to_owned()),
-                    _ => None
-                };
+                let old_lrc_url = info.metadata.get("xesam:url").map(Deref::deref).and_then(extract_str).map(ToOwned::to_owned);
                 info.apply_update(player_update);
-                let new_lrc_url = match info.metadata.get("xesam:url").map(Deref::deref) {
-                    Some(Value::Str(u)) => Some(u.as_ref()),
-                    _ => None
-                };
+                let new_lrc_url = info.metadata.get("xesam:url").map(Deref::deref).and_then(extract_str).map(ToOwned::to_owned);
 
                 if current_player.as_ref().map(|p| &p.bus) == Some(&bus_name) {
                     let player = current_player.take().unwrap();
@@ -148,9 +141,7 @@ pub async fn event_loop(
                         let lrc = if old_lrc_url == new_lrc_url { player.lrc } else {
                             // Reload lyrics first
                             tracing::info!(%bus_name, ?old_lrc_url, ?new_lrc_url, "Currently active player lyrics modified");
-                            let audio_url = &new_lrc_url.unwrap();
-                            let audio_path = Lrc::audio_url_to_path(audio_url).unwrap();
-                            if let Ok(i) = Lrc::from_audio_path(&audio_path) { i } else if let Ok(i) = Lrc::from_lrc_path(&Lrc::audio_path_to_lrc(&audio_path)) { i } else {
+                            if let Ok(i) = info.get_lyrics().unwrap() { i } else {
                                 // Lyric is inaccessible - find new player
                                 tracing::info!(%bus_name, "Player lyric is inaccessible");
                                 match scanner::find_active_player(&available_players) {
@@ -172,9 +163,7 @@ pub async fn event_loop(
                     }
                 } else if current_player.is_none() && scanner::is_player_active(info) {
                     tracing::info!("Player has gone active");
-                    let Value::Str(audio_url) = info.metadata["xesam:url"].deref() else { unreachable!() };
-                    let audio_path = Lrc::audio_url_to_path(audio_url).unwrap();
-                    let lrc = if let Ok(i) = Lrc::from_audio_path(&audio_path) { i } else if let Ok(i) = Lrc::from_lrc_path(&Lrc::audio_path_to_lrc(&audio_path)) { i } else { continue };
+                    let Ok(lrc) = info.get_lyrics().unwrap() else { continue };
                     reload_current_player(bus_name, lrc, info, &mut current_player, &mut current_player_timer);
                 }
             }

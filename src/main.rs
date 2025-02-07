@@ -11,6 +11,7 @@ mod event_loop;
 mod lrc;
 mod output;
 mod player;
+mod utils;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {

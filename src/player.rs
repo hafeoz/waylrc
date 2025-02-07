@@ -1,6 +1,8 @@
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
+    io::BufReader,
+    ops::Deref,
     str::FromStr,
     time::Instant,
 };
@@ -18,7 +20,8 @@ use zbus::{
 
 use crate::{
     dbus::player::{PlayerProxy, SeekedStream},
-    lrc::TimeTag,
+    lrc::{Lrc, TimeTag},
+    utils::extract_str,
 };
 
 /// Current playback status of a MPRIS-compliant player
@@ -102,6 +105,79 @@ impl PlayerInformation {
             .map(|(k, v)| format!("{k}: {v}"))
             .collect::<Vec<_>>()
             .join("\n")
+    }
+    pub fn has_lyrics(&self) -> bool {
+        if self
+            .metadata
+            .get("xesam:asText")
+            .map(Deref::deref)
+            .and_then(extract_str)
+            .is_some()
+        {
+            // Lyrics exposed from MPRIS metadata
+            return true;
+        }
+        if let Some(audio_url) = self
+            .metadata
+            .get("xesam:url")
+            .map(Deref::deref)
+            .and_then(extract_str)
+        {
+            // Possible lyrics contained in audio file
+            match Lrc::audio_url_to_path(audio_url) {
+                Ok(i) if i.is_file() => return true,
+                Err(e) => {
+                    tracing::warn!(%e, "Failed to decode URL");
+                }
+                _ => {}
+            }
+        }
+        false
+    }
+    pub fn get_lyrics(&self) -> Option<Result<Lrc>> {
+        // Attempt to extract lyrics from MPRIS
+        if let Some(lrc) = self
+            .metadata
+            .get("xesam:asText")
+            .map(Deref::deref)
+            .and_then(extract_str)
+        {
+            tracing::debug!("Using lyrics from MPRIS asText metadata");
+            let mut lrc = Cow::Borrowed(lrc.as_str());
+            if lrc.lines().count() == 1 {
+                // Lines are concatenated for some reason - parse them on best-effort basis
+                tracing::warn!("Lyric lines are concatenated - parsing them might be inaccurate");
+                lrc = Cow::Owned(
+                    lrc.split(" [")
+                        .map(|l| format!(" [{l}"))
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                );
+            }
+            return Some(
+                Lrc::from_reader(BufReader::new(lrc.as_bytes()))
+                    .context("Failed to parse lrc from MPRIS metadata"),
+            );
+        }
+        if let Some(audio_path) = self
+            .metadata
+            .get("xesam:url")
+            .map(Deref::deref)
+            .and_then(extract_str)
+            .and_then(|v| Lrc::audio_url_to_path(v.as_str()).ok())
+        {
+            // Attempt to extract lyrics from discrete LRC file
+            let lrc_path = Lrc::audio_path_to_lrc(&audio_path);
+            if lrc_path.is_file() {
+                tracing::debug!("Using lyrics from LRC file");
+                return Some(Lrc::from_lrc_path(&lrc_path));
+            }
+            tracing::debug!("Using lyrics from media tags");
+            // Attempt to extract lyrics from media tags
+            return Some(Lrc::from_audio_path(&audio_path));
+        }
+        tracing::warn!("No lyrics found but get_lyrics is called");
+        None
     }
 }
 pub struct PlayerInformationUpdateListener<'a> {

@@ -1,29 +1,25 @@
-use std::{collections::HashMap, ops::Deref, sync::Arc};
+use std::{collections::HashMap, ops::Deref as _, sync::Arc};
 
 use anyhow::Result;
 use tokio::task::JoinHandle;
-use zbus::{names::OwnedBusName, zvariant::Value};
+use zbus::names::OwnedBusName;
 
 use crate::{
     lrc::Lrc,
     player::{PlaybackStatus, PlayerInformation},
+    utils::extract_str,
 };
 
 pub fn is_player_active(player: &PlayerInformation) -> bool {
+    // The player must be playing something ...
     if player.status != PlaybackStatus::Playing {
         return false;
     }
-    let Some(Value::Str(audio_url)) = player.metadata.get("xesam:url").map(Deref::deref) else {
+    // ... and there should be some lyrics we can use
+    if !player.has_lyrics() {
         return false;
-    };
-    match Lrc::audio_url_to_path(audio_url) {
-        Ok(i) if i.is_file() => true,
-        Err(e) => {
-            tracing::warn!(%e, "Failed to decode URL");
-            false
-        }
-        Ok(_) => false,
     }
+    true
 }
 
 pub fn find_active_player(
@@ -34,17 +30,14 @@ pub fn find_active_player(
         .filter(|(_, (i, _))| is_player_active(i))
         .find_map(|(name, (player, _))| {
             let name = Arc::clone(name);
-            let Value::Str(audio_url) = player.metadata.get("xesam:url")?.deref()
-            else {
-                unreachable!()
-            };
+            let audio_url = extract_str(player.metadata.get("xesam:url")?.deref()).unwrap();
             let audio_path = Lrc::audio_url_to_path(audio_url).unwrap();
             match Lrc::from_audio_path(&audio_path) {
                 Ok(i) => return Some((name, player, i)),
                 Err(e) => {
                     tracing::debug!(?e, ?audio_path, bus_name=%name, "Failed to load lyric from audio file");
                 }
-            };
+            }
             let lrc_path = Lrc::audio_path_to_lrc(&audio_path);
             if lrc_path.exists() {
                 match Lrc::from_lrc_path(&lrc_path) {
