@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use anyhow::{ensure, Result};
+use anyhow::{bail, ensure, Result};
 use tokio::{
     sync::mpsc,
     task::{spawn, JoinHandle},
@@ -13,6 +13,39 @@ use crate::{
     player::{PlayerInformation, PlayerInformationUpdate, PlayerInformationUpdateListener},
 };
 
+#[instrument(skip_all)]
+async fn build_player<'a>(
+    player_name: &Arc<OwnedBusName>,
+    conn: Connection,
+) -> Result<PlayerProxy<'a>> {
+    let mut timeout = Duration::from_secs(2);
+    loop {
+        let player = PlayerProxy::builder(&conn)
+            .destination(Arc::unwrap_or_clone(Arc::clone(player_name)))?
+            .path("/org/mpris/MediaPlayer2")?
+            .build()
+            .await?;
+
+        // Probe the connection - sometimes the newly created player is not ready for messages yet,
+        // and we need to restart the proxy
+        if tokio::time::timeout(timeout, async {
+            let _ = player.can_play().await;
+        })
+        .await
+        .is_ok()
+        {
+            return Ok(player);
+        }
+
+        // Increase the timeout exponentially
+        if timeout.as_secs() > 10 {
+            bail!("PlayerProxy is not responding after {timeout:#?} - giving up!");
+        }
+        tracing::info!("PlayerProxy is not responding after {timeout:#?} - restarting connection");
+        timeout = Duration::from_secs_f64(1.3 * timeout.as_secs_f64());
+    }
+}
+
 #[instrument(skip_all, fields(player_name))]
 pub async fn get_player_info(
     player_name: Arc<OwnedBusName>,
@@ -20,11 +53,7 @@ pub async fn get_player_info(
     refresh_interval: Duration,
     update_sender: mpsc::Sender<(Arc<OwnedBusName>, PlayerInformationUpdate)>,
 ) -> Result<(PlayerInformation, JoinHandle<Result<()>>)> {
-    let player = PlayerProxy::builder(&conn)
-        .destination(Arc::unwrap_or_clone(Arc::clone(&player_name)))?
-        .path("/org/mpris/MediaPlayer2")?
-        .build()
-        .await?;
+    let player = build_player(&player_name, conn).await?;
     let info = PlayerInformation::new(&player).await?;
     tracing::debug!(?info);
     let mut info_updater = PlayerInformationUpdateListener::new(player, refresh_interval).await?;
