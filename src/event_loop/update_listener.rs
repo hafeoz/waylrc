@@ -18,7 +18,7 @@ async fn build_player<'a>(
     player_name: &Arc<OwnedBusName>,
     conn: Connection,
 ) -> Result<PlayerProxy<'a>> {
-    let mut timeout = Duration::from_secs(2);
+    let mut timeout = Duration::from_secs(1);
     loop {
         let player = PlayerProxy::builder(&conn)
             .destination(Arc::unwrap_or_clone(Arc::clone(player_name)))?
