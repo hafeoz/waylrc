@@ -136,6 +136,7 @@ impl PlayerInformation {
     }
     pub fn get_lyrics(&self) -> Option<Result<Lrc>> {
         // Attempt to extract lyrics from MPRIS
+        let mpris_lrc;
         if let Some(lrc) = self
             .metadata
             .get("xesam:asText")
@@ -143,21 +144,29 @@ impl PlayerInformation {
             .and_then(extract_str)
         {
             tracing::debug!("Using lyrics from MPRIS asText metadata");
-            let mut lrc = Cow::Borrowed(lrc.as_str());
             if lrc.lines().count() == 1 {
                 // Lines are concatenated for some reason - parse them on best-effort basis
-                tracing::warn!("Lyric lines are concatenated - parsing them might be inaccurate");
-                lrc = Cow::Owned(
-                    lrc.split(" [")
+                // Only parse them when really needed - no LRC or audio files
+                mpris_lrc = Some(|| {
+                    tracing::warn!(
+                        "Lyric lines are concatenated - parsing them might be inaccurate"
+                    );
+                    let lrc = lrc
+                        .split(" [")
                         .map(|l| format!(" [{l}"))
                         .collect::<Vec<_>>()
-                        .join("\n"),
+                        .join("\n");
+                    Lrc::from_reader(BufReader::new(lrc.as_bytes()))
+                        .context("Failed to parse lrc from MPRIS metadata")
+                });
+            } else {
+                return Some(
+                    Lrc::from_reader(BufReader::new(lrc.as_bytes()))
+                        .context("Failed to parse lrc from MPRIS metadata"),
                 );
             }
-            return Some(
-                Lrc::from_reader(BufReader::new(lrc.as_bytes()))
-                    .context("Failed to parse lrc from MPRIS metadata"),
-            );
+        } else {
+            mpris_lrc = None;
         }
         if let Some(audio_path) = self
             .metadata
@@ -175,6 +184,9 @@ impl PlayerInformation {
             tracing::debug!("Using lyrics from media tags");
             // Attempt to extract lyrics from media tags
             return Some(Lrc::from_audio_path(&audio_path));
+        }
+        if let Some(mpris_lrc) = mpris_lrc {
+            return Some(mpris_lrc());
         }
         tracing::warn!("No lyrics found but get_lyrics is called");
         None
