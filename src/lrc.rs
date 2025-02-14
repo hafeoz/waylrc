@@ -7,7 +7,6 @@ use std::{
     collections::BTreeMap,
     fs::File,
     io::{self, BufRead, BufReader},
-    ops::Bound::{Included, Unbounded},
     path::{Path, PathBuf},
     str::FromStr,
     time::Duration,
@@ -211,7 +210,9 @@ impl Lrc {
     pub fn floor(&self, time: TimeTag) -> TimeTag {
         let mut floor_time = time;
         for lines in &self.0 {
-            let Some((time, _)) = lines.range((Unbounded, Included(time))).next() else { continue; };
+            let Some((time, _)) = lines.range(..=time).next_back() else {
+                continue;
+            };
             if floor_time < *time {
                 floor_time = *time;
             }
