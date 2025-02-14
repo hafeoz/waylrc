@@ -252,7 +252,9 @@ impl PlayerInformation {
     #[must_use]
     pub fn get_current_timetag(&self) -> TimeTag {
         assert!(self.position >= 0, "Negative timetag encountered");
-        TimeTag(Duration::from_micros(self.position as u64) + self.position_last_refresh.elapsed())
+        let elapsed =
+            Duration::from_secs_f64(self.position_last_refresh.elapsed().as_secs_f64() / self.rate);
+        TimeTag(Duration::from_micros(self.position as u64) + elapsed)
     }
 }
 
