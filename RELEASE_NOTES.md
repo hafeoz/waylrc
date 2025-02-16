@@ -18,4 +18,4 @@ To verify the asset, run:
 gh attestation verify PATH/TO/ARTIFACT -R hafeoz/waylrc
 ```
 
-Each asset has been built twice via [reprotest](https://salsa.debian.org/reproducible-builds/reprotest) checking [bit-by-bit reproducibility](https://reproducible-builds.org/), although [do note that not all variations are enabled](https://github.com/hafeoz/rust-build-release-workflow?tab=readme-ov-file#caveats-and-security-considerations) and variations are expected to be seen in the wild:
+Each asset has been built twice with variations via [reprotest](https://salsa.debian.org/reproducible-builds/reprotest) checking [bit-by-bit reproducibility](https://reproducible-builds.org/):
