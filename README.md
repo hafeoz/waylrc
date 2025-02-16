@@ -34,5 +34,5 @@ Add the following to your waybar config file:
 
 ## License
 
-This software is licensed under [BSD Zero Clause](https://spdx.org/licenses/0BSD.html) OR [CC0](https://spdx.org/licenses/CC0-1.0.html) OR [WTFPL Version 2](https://spdx.org/licenses/WTFPL.html).
+This software is licensed under [BSD Zero Clause](https://spdx.org/licenses/0BSD.html) OR [CC0 v1.0 Universal](https://spdx.org/licenses/CC0-1.0.html) OR [WTFPL Version 2](https://spdx.org/licenses/WTFPL.html).
 You may choose any of them at your will.
