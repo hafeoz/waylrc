@@ -11,3 +11,4 @@ jobs:
       attestations: write  # attest-build-provenance
     with:
       fail-if-unreproducible: true
+      target-regex: '^([^-]+)-([^-]+)-linux(-(musl|gnu)([^-]+))?$'
