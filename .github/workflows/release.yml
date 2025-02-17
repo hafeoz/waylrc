@@ -12,4 +12,4 @@ jobs:
     with:
       fail-if-unreproducible: true
       target-regex: '^([^-]+)-([^-]+)-linux(-(musl|gnu)([^-]+))?$'
-      skip-target: 'armv5te-unknown-linux-musleabi' # fails to compile zvariant-5.2.0
+      skip-target: 'armv5te-unknown-linux-musleabi,armv5te-unknown-linux-gnueabi' # fails to compile zvariant-5.2.0
