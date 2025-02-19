@@ -8,7 +8,7 @@ use tracing_subscriber::EnvFilter;
 #[command(author, version, about, long_about = None)]
 pub struct Args {
     /// Force a D-Bus sync every X seconds
-    #[clap(long, short, default_value_t = 60.0)]
+    #[clap(long, short, default_value_t = 3600.0)]
     pub refresh_every: f64,
     /// File to write the log to. If not specified, logs will be written to stderr.
     #[clap(long, short)]
