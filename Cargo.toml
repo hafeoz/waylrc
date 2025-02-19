@@ -1,6 +1,6 @@
 [package]
 name = "waylrc"
-version = "2.2.1"
+version = "2.2.2"
 edition = "2021"
 authors = ["hafeoz <me@zony.dev>"]
 description = "A Waybar module to display currently playing song lyrics"
