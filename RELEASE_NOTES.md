@@ -15,7 +15,10 @@ They are cryptographically signed using [GitHub artifact attestation](https://do
 
 To verify the asset, run:
 ```shell
-gh attestation verify PATH/TO/ARTIFACT -R hafeoz/waylrc
+gh attestation verify \
+    --deny-self-hosted-runners --signer-workflow hafeoz/rust-build-release-workflow/.github/workflows/build-and-publish.yaml \
+    -R hafeoz/waylrc \
+    PATH_TO_ASSET
 ```
 
 Each asset has been built twice with variations via [reprotest](https://salsa.debian.org/reproducible-builds/reprotest) checking [bit-by-bit reproducibility](https://reproducible-builds.org/):
