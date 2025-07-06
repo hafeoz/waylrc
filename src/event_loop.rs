@@ -61,7 +61,7 @@ pub async fn event_loop(
                                  current_player: &mut _,
                                  current_player_timer: &mut _| {
         tracing::debug!(%bus, "Current player state refreshed");
-        let current_timetag = lrc.floor(info.get_current_timetag());
+        let current_timetag = info.get_current_timetag();
         let (lrc_line, next_lrc_timetag) = lrc.get(&current_timetag);
         WaybarCustomModule::new(
             Some(&lrc_line.join(" ")),

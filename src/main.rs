@@ -1,3 +1,4 @@
+#![feature(btree_cursors)]
 use std::time::Duration;
 
 use anyhow::Result;

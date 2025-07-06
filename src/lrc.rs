@@ -7,6 +7,7 @@ use std::{
     collections::BTreeMap,
     fs::File,
     io::{self, BufRead, BufReader},
+    ops::Bound,
     path::{Path, PathBuf},
     str::FromStr,
     time::Duration,
@@ -207,29 +208,15 @@ impl Lrc {
     }
 
     #[must_use]
-    pub fn floor(&self, time: TimeTag) -> TimeTag {
-        let mut floor_time = time;
-        for lines in &self.0 {
-            let Some((time, _)) = lines.range(..=time).next_back() else {
-                continue;
-            };
-            if floor_time < *time {
-                floor_time = *time;
-            }
-        }
-        floor_time
-    }
-
-    #[must_use]
     pub fn get(&self, time: &TimeTag) -> (Vec<&str>, Option<TimeTag>) {
         let mut next_time = None;
         let mut texts = Vec::with_capacity(self.0.len());
         for lines in &self.0 {
-            let mut lines = lines.range(time..);
-            let Some((_, text)) = lines.next() else {
+            let cursor = lines.upper_bound(Bound::Included(time));
+            let Some((_, text)) = cursor.peek_prev() else {
                 continue;
             };
-            let time = lines.next().map(|(t, _)| *t);
+            let time = cursor.peek_next().map(|(t, _)| *t);
             if let Some(t) = time {
                 if next_time.is_none_or(|n| t < n) {
                     next_time = Some(t);
