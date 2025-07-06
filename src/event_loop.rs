@@ -81,7 +81,8 @@ pub async fn event_loop(
             lrc,
             next_lrc_timetag,
         });
-        let till_next_timetag = next_lrc_timetag.duration_from(&current_timetag, info.rate);
+        let till_next_timetag =
+            next_lrc_timetag.duration_from(&current_timetag, info.rate.unwrap_or(1.0));
         *current_player_timer = Box::pin(Either::Left(sleep(till_next_timetag)));
     };
 
@@ -176,7 +177,7 @@ pub async fn event_loop(
                 match next_timetag {
                     None => current_player_timer = Box::pin(Either::Right(pending())),
                     Some(t) => {
-                        current_player_timer = Box::pin(Either::Left(sleep(t.duration_from(&player.next_lrc_timetag, player_info.rate))));
+                        current_player_timer = Box::pin(Either::Left(sleep(t.duration_from(&player.next_lrc_timetag, player_info.rate.unwrap_or(1.0)))));
                         player.next_lrc_timetag = t;
                     }
                 }

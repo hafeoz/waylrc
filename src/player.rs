@@ -49,8 +49,8 @@ pub struct PlayerInformation {
     pub metadata: std::collections::HashMap<String, OwnedValue>,
     pub position: i64,
     pub position_last_refresh: Instant,
-    pub rate: f64,
-    pub status: PlaybackStatus,
+    pub rate: Option<f64>,
+    pub status: Option<PlaybackStatus>,
 }
 impl PlayerInformation {
     #[must_use]
@@ -213,7 +213,11 @@ impl PlayerInformation {
             metadata: player
                 .metadata()
                 .await
-                .context("Failed to get player metadata")?,
+                .inspect_err(|e| {
+                    tracing::warn!(?e, "Failed to get player metadata");
+                })
+                .ok()
+                .unwrap_or_default(),
             position: player
                 .position()
                 .await
@@ -221,12 +225,21 @@ impl PlayerInformation {
             rate: player
                 .rate()
                 .await
-                .context("Failed to get player playback rate")?,
+                .inspect_err(|e| {
+                    tracing::warn!(?e, "Failed to get player playback rate");
+                })
+                .ok(),
             status: player
                 .playback_status()
                 .await
-                .context("Failed to get player playback status")?
-                .parse()?,
+                .inspect_err(|e| {
+                    tracing::warn!(?e, "Failed to get player playback status");
+                })
+                .ok()
+                .as_deref()
+                .map(str::parse)
+                .transpose()
+                .context("Failed to parse player playback status")?,
             position_last_refresh: Instant::now(),
         })
     }
@@ -237,10 +250,10 @@ impl PlayerInformation {
                 self.metadata = metadata;
             }
             PlayerInformationUpdate::Rate(rate) => {
-                self.rate = rate;
+                self.rate = Some(rate);
             }
             PlayerInformationUpdate::Status(status) => {
-                self.status = status;
+                self.status = Some(status);
             }
             PlayerInformationUpdate::Position(position, instant) => {
                 self.position = position;
@@ -252,8 +265,9 @@ impl PlayerInformation {
     #[must_use]
     pub fn get_current_timetag(&self) -> TimeTag {
         assert!(self.position >= 0, "Negative timetag encountered");
-        let elapsed =
-            Duration::from_secs_f64(self.position_last_refresh.elapsed().as_secs_f64() / self.rate);
+        let elapsed = Duration::from_secs_f64(
+            self.position_last_refresh.elapsed().as_secs_f64() / self.rate.unwrap_or(1.0),
+        );
         TimeTag(Duration::from_micros(self.position as u64) + elapsed)
     }
 }

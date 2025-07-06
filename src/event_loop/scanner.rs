@@ -12,7 +12,7 @@ use crate::{
 
 pub fn is_player_active(player: &PlayerInformation) -> bool {
     // The player must be playing something ...
-    if player.status != PlaybackStatus::Playing {
+    if player.status.is_some() && player.status != Some(PlaybackStatus::Playing) {
         return false;
     }
     // ... and there should be some lyrics we can use
