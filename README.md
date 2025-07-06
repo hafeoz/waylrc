@@ -8,7 +8,7 @@ A [waybar](https://github.com/Alexays/Waybar) module to display currently playin
 
 ### Build from source
 
-You need to have [cargo](https://www.rust-lang.org/tools/install) installed.
+You need to have [cargo](https://www.rust-lang.org/tools/install) installed. Rust nightly is required.
 
 ```bash
 git clone https://github.com/hafeoz/waylrc.git && cd waylrc
