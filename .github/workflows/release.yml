@@ -11,7 +11,7 @@ jobs:
       attestations: write  # attest-build-provenance
     with:
       fail-if-unreproducible: true
-      target-regex: '^([^-]+)-([^-]+)-linux(-(musl|gnu)([^-]+))?$'
+      target-regex: '^([^-]+)-([^-]+)-linux(-(musl|gnu)[^-]*)?$'
       skip-target: 'armv5te-unknown-linux-musleabi,armv5te-unknown-linux-gnueabi' # fails to compile zvariant-5.2.0
       rust-toolchain: 'nightly'
       rust-flags: '-Z remap-cwd-prefix=.'
