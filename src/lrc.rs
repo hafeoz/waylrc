@@ -214,16 +214,16 @@ impl Lrc {
         let mut texts = Vec::with_capacity(self.0.len());
         for lines in &self.0 {
             let cursor = lines.upper_bound(Bound::Included(time));
-            let Some((_, text)) = cursor.peek_prev() else {
-                continue;
-            };
+            let text = cursor.peek_prev().map(|(_, t)| t);
             let time = cursor.peek_next().map(|(t, _)| *t);
             if let Some(t) = time {
                 if next_time.is_none_or(|n| t < n) {
                     next_time = Some(t);
                 }
             }
-            texts.push(text.as_str());
+            if let Some(t) = text {
+                texts.push(t.as_str());
+            }
         }
         (texts, next_time)
     }
