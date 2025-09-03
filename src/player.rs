@@ -24,7 +24,7 @@ use crate::{
     utils::extract_str,
 };
 
-const MAX_METADATA_VALUE_LEN: usize = 64;
+const MAX_METADATA_VALUE_LEN: usize = 256;
 
 /// Current playback status of a MPRIS-compliant player
 #[derive(Eq, PartialEq, Debug)]
