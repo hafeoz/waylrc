@@ -24,6 +24,8 @@ use crate::{
     utils::extract_str,
 };
 
+const MAX_METADATA_VALUE_LEN: usize = 64;
+
 /// Current playback status of a MPRIS-compliant player
 #[derive(Eq, PartialEq, Debug)]
 pub enum PlaybackStatus {
@@ -102,6 +104,13 @@ impl PlayerInformation {
     }
     pub fn format_metadata(&self, filter_keys: &HashSet<String>) -> String {
         self.metadata(filter_keys)
+            .map(|(k, v)| {
+                if v.len() > MAX_METADATA_VALUE_LEN {
+                    (k, Cow::Owned(format!("({} bytes blob)", v.len())))
+                } else {
+                    (k, v)
+                }
+            })
             .map(|(k, v)| format!("{k}: {v}"))
             .collect::<Vec<_>>()
             .join("\n")
