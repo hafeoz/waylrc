@@ -113,7 +113,7 @@ pub async fn event_loop(
                         available_players.insert(bus_name, (player_info, player_updater));
                     },
                     BusActivity::Destroyed => {
-                        let Some((_, updater)) = available_players.remove(&bus_name) else { bail!("Attempting to destroy a non-existent player {bus_name}") };
+                        let Some((_, updater)) = available_players.remove(&bus_name) else { tracing::error!("Attempting to destroy a non-existent player {bus_name}"); continue };
                         updater.abort();
 
                         if current_player.as_ref().is_some_and(|p| p.bus == bus_name) {
@@ -128,7 +128,7 @@ pub async fn event_loop(
             }
             Some((bus_name, player_update)) = player_update_receiver.recv() => {
                 tracing::debug!(%bus_name, ?player_update, "Player status updated");
-                let Some((info, _)) = available_players.get_mut(&bus_name) else { bail!("Attempting to update a non-existent player {bus_name}") };
+                let Some((info, _)) = available_players.get_mut(&bus_name) else { tracing::error!("Attempting to update a non-existent player {bus_name}"); continue };
                 let old_lrc_url = info.metadata.get("xesam:url").map(Deref::deref).and_then(extract_str).map(ToOwned::to_owned);
                 info.apply_update(player_update);
                 let new_lrc_url = info.metadata.get("xesam:url").map(Deref::deref).and_then(extract_str).map(ToOwned::to_owned);
@@ -169,7 +169,7 @@ pub async fn event_loop(
                 }
             }
             () = &mut current_player_timer => {
-                let Some(player) = &mut current_player else { bail!("Lyric timer expired but no active player is found"); };
+                let Some(player) = &mut current_player else { tracing::error!("Lyric timer expired but no active player is found"); continue };
                 let (lrc, next_timetag) = player.lrc.get(&player.next_lrc_timetag);
                 tracing::debug!(%player.bus, ?lrc, ?next_timetag, "Printing lyric");
                 let player_info = &available_players[&player.bus].0;
