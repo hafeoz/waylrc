@@ -169,6 +169,7 @@ impl Lrc {
                 }
             }
         }
+        tracing::debug!(?lrc, "Parsed lrc content");
 
         Ok(Self(lrc))
     }
