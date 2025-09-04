@@ -20,6 +20,10 @@ use zbus::{
 
 use crate::{
     dbus::player::{PlayerProxy, SeekedStream},
+    external_lrc_provider::{
+        navidrome::{fetch_lyrics_from_navidrome, NavidromeConfig},
+        ExternalLrcProvider,
+    },
     lrc::{Lrc, TimeTag},
     utils::extract_str,
 };
@@ -116,6 +120,7 @@ impl PlayerInformation {
             .join("\n")
     }
     pub fn has_lyrics(&self) -> bool {
+        // First check if lyrics are exposed from MPRIS metadata
         if self
             .metadata
             .get("xesam:asText")
@@ -123,25 +128,28 @@ impl PlayerInformation {
             .and_then(extract_str)
             .is_some()
         {
-            // Lyrics exposed from MPRIS metadata
             return true;
         }
+
+        // Then check if we have a file URL that might contain lyrics
         if let Some(audio_url) = self
             .metadata
             .get("xesam:url")
             .map(Deref::deref)
             .and_then(extract_str)
         {
-            // Possible lyrics contained in audio file
             match Lrc::audio_url_to_path(audio_url) {
                 Ok(i) if i.is_file() => return true,
                 Err(e) => {
-                    tracing::warn!(%e, "Failed to decode URL");
+                    tracing::debug!(%e, "URL is not a file path, but will continue processing");
                 }
                 _ => {}
             }
         }
-        false
+
+        // If we have any metadata at all, assume we might be able to work with it
+        // This prevents the program from stopping when URL is not a file://
+        !self.metadata.is_empty()
     }
     pub fn get_lyrics(&self) -> Option<Result<Lrc>> {
         // Attempt to extract lyrics from MPRIS
@@ -177,27 +185,86 @@ impl PlayerInformation {
         } else {
             mpris_lrc = None;
         }
-        if let Some(audio_path) = self
+
+        // Try to get lyrics from file if URL is a file path
+        if let Some(audio_url) = self
             .metadata
             .get("xesam:url")
             .map(Deref::deref)
             .and_then(extract_str)
-            .and_then(|v| Lrc::audio_url_to_path(v.as_str()).ok())
         {
-            // Attempt to extract lyrics from discrete LRC file
-            let lrc_path = Lrc::audio_path_to_lrc(&audio_path);
-            if lrc_path.is_file() {
-                tracing::debug!("Using lyrics from LRC file");
-                return Some(Lrc::from_lrc_path(&lrc_path));
+            match Lrc::audio_url_to_path(audio_url) {
+                Ok(audio_path) => {
+                    // Attempt to extract lyrics from discrete LRC file
+                    let lrc_path = Lrc::audio_path_to_lrc(&audio_path);
+                    if lrc_path.is_file() {
+                        tracing::debug!("Using lyrics from LRC file");
+                        return Some(Lrc::from_lrc_path(&lrc_path));
+                    }
+                    tracing::debug!("Using lyrics from media tags");
+                    // Attempt to extract lyrics from media tags
+                    return Some(Lrc::from_audio_path(&audio_path));
+                }
+                Err(e) => {
+                    tracing::debug!(%e, "URL is not a file path, trying MPRIS metadata fallback");
+                }
             }
-            tracing::debug!("Using lyrics from media tags");
-            // Attempt to extract lyrics from media tags
-            return Some(Lrc::from_audio_path(&audio_path));
         }
+
+        // Fall back to MPRIS lyrics if available
         if let Some(mpris_lrc) = mpris_lrc {
             return Some(mpris_lrc());
         }
+
         tracing::warn!("No lyrics found but get_lyrics is called");
+        None
+    }
+
+    /// Get lyrics with external provider support (async version)
+    pub async fn get_lyrics_with_external(
+        &self,
+        external_providers: &[ExternalLrcProvider],
+        navidrome_config: Option<&NavidromeConfig>,
+    ) -> Option<Result<Lrc>> {
+        // First try local sources (same as get_lyrics)
+        if let Some(result) = self.get_lyrics() {
+            return Some(result);
+        }
+
+        // If no local lyrics found, try external providers
+        for provider in external_providers {
+            match provider {
+                ExternalLrcProvider::NAVIDROME => {
+                    if let Some(config) = navidrome_config {
+                        tracing::debug!("Trying to fetch lyrics from Navidrome");
+
+                        match fetch_lyrics_from_navidrome(
+                            &config.server_url,
+                            &config.username,
+                            &config.password,
+                            &self.metadata,
+                        )
+                        .await
+                        {
+                            Ok(lyrics_text) => {
+                                tracing::info!("Successfully fetched lyrics from Navidrome");
+                                // Parse the lyrics text into LRC format
+                                return Some(
+                                    Lrc::from_reader(BufReader::new(lyrics_text.as_bytes()))
+                                        .context("Failed to parse lyrics from Navidrome"),
+                                );
+                            }
+                            Err(e) => {
+                                tracing::warn!("Failed to fetch lyrics from Navidrome: {:?}", e);
+                            }
+                        }
+                    } else {
+                        tracing::warn!("Navidrome provider selected but no configuration provided");
+                    }
+                }
+            }
+        }
+
         None
     }
 }

@@ -30,6 +30,30 @@ impl BusChange {
     pub fn is_mpris(&self) -> bool {
         self.name.starts_with("org.mpris.MediaPlayer2")
     }
+
+    /// Check if the bus name matches any of the specified players
+    /// If players contains "all", all MPRIS players are allowed
+    pub fn matches_players(&self, players: &[String]) -> bool {
+        if !self.is_mpris() {
+            return false;
+        }
+
+        // If "all" is specified, allow all MPRIS players
+        if players.contains(&"all".to_string()) {
+            return true;
+        }
+
+        // Extract player name from bus name (e.g., "org.mpris.MediaPlayer2.vlc" -> "vlc")
+        let player_name = self.name.strip_prefix("org.mpris.MediaPlayer2.")
+            .unwrap_or(self.name.as_str());
+
+        // Check if any of the specified players match
+        players.iter().any(|p| {
+            player_name == p ||
+            player_name.to_lowercase() == p.to_lowercase() ||
+            self.name.as_str() == format!("org.mpris.MediaPlayer2.{}", p)
+        })
+    }
 }
 
 /// Return a stream of all MPRIS players on the bus

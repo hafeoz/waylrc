@@ -1,13 +1,13 @@
-use std::{collections::HashMap, ops::Deref as _, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
 use tokio::task::JoinHandle;
 use zbus::names::OwnedBusName;
 
 use crate::{
+    external_lrc_provider::{navidrome::NavidromeConfig, ExternalLrcProvider},
     lrc::Lrc,
     player::{PlaybackStatus, PlayerInformation},
-    utils::extract_str,
 };
 
 pub fn is_player_active(player: &PlayerInformation) -> bool {
@@ -22,31 +22,20 @@ pub fn is_player_active(player: &PlayerInformation) -> bool {
     true
 }
 
-pub fn find_active_player(
+pub async fn find_active_player_with_lyrics(
     available_players: &HashMap<Arc<OwnedBusName>, (PlayerInformation, JoinHandle<Result<()>>)>,
-) -> Option<(Arc<OwnedBusName>, &PlayerInformation, Lrc)> {
-    available_players
-        .iter()
-        .filter(|(_, (i, _))| is_player_active(i))
-        .find_map(|(name, (player, _))| {
-            let name = Arc::clone(name);
-            let audio_url = extract_str(player.metadata.get("xesam:url")?.deref()).unwrap();
-            let audio_path = Lrc::audio_url_to_path(audio_url).unwrap();
-            match Lrc::from_audio_path(&audio_path) {
-                Ok(i) => return Some((name, player, i)),
-                Err(e) => {
-                    tracing::debug!(?e, ?audio_path, bus_name=%name, "Failed to load lyric from audio file");
-                }
-            }
-            let lrc_path = Lrc::audio_path_to_lrc(&audio_path);
-            if lrc_path.exists() {
-                match Lrc::from_lrc_path(&lrc_path) {
-                    Ok(i) => return Some((name, player, i)),
-                    Err(e) => {
-                        tracing::debug!(?e, ?lrc_path, bus_name=%name, "Failed to load lyric from lrc file");
-                    }
-                }
-            }
-            None
-        })
+    external_providers: &[ExternalLrcProvider],
+    navidrome_config: Option<&NavidromeConfig>,
+) -> Option<(Arc<OwnedBusName>, Lrc)> {
+    for (name, (player, _)) in available_players.iter() {
+        if !is_player_active(player) {
+            continue;
+        }
+
+        // Try to get lyrics with external provider support
+        if let Some(Ok(lrc)) = player.get_lyrics_with_external(external_providers, navidrome_config).await {
+            return Some((Arc::clone(name), lrc));
+        }
+    }
+    None
 }

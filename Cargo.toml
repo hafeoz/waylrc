@@ -28,6 +28,9 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 serde = "1.0.217"
 serde_json = "1.0.138"
 html-escape = "0.2.13"
+rand = "0.9.2"
+md5 = "0.8.0"
+reqwest = { version = "0.12.23", features = ["json", "rustls-tls"] }
 
 [profile.release]
 codegen-units = 1
