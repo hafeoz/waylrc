@@ -9,13 +9,6 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
     nixpkgs.url = "github:cachix/devenv-nixpkgs/rolling";
     devenv.url = "github:cachix/devenv";
-    rust-nix2container = {
-      url = "github:nlewo/nix2container";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-      };
-    };
-    mk-shell-bin.url = "github:rrbutani/nix-mk-shell-bin";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs = {
@@ -46,11 +39,37 @@
           ...
         }:
         {
+          packages = rec {
+            default = waylrc;
+            waylrc = pkgs.rustPlatform.buildRustPackage (finalAttrs: {
+              pname = "waylrc";
+              version = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).package.version;
+              src = ./.;
+              cargoLock = {
+                lockFile = ./Cargo.lock;
+              };
+              nativeBuildInputs = with pkgs; [
+                pkg-config
+                openssl
+                openssl.dev
+              ];
+              RUSTC_BOOTSTRAP = 1; # waylrc requires nightly feature
+              PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
+              meta = {
+                description = "An addon for waybar to display lyrics";
+                homepage = "https://github.com/hafeoz/waylrc";
+                license = with pkgs.lib.licenses; [
+                  bsd0
+                  cc0
+                  wtfpl
+                ];
+                platforms = pkgs.lib.platforms.linux;
+              };
+            });
+          };
           devenv.shells.default = {
             name = "waylrc";
-            env = {
-              PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig:${builtins.getEnv "PKG_CONFIG_PATH"}";
-            };
+            env.RUSTC_BOOTSTRAP = 1;
             languages = {
               rust = {
                 enable = true;
@@ -66,6 +85,9 @@
                 ];
               };
             };
+            enterShell = ''
+              export PKG_CONFIG_PATH="${pkgs.openssl.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
+            '';
           };
         };
     };

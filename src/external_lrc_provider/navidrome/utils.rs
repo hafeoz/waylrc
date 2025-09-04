@@ -1,4 +1,5 @@
-use crate::external_lrc_provider::navidrome::{types::{Song, LyricsLine}, metadata::TrackMetadata};
+use crate::external_lrc_provider::navidrome::{types::{Song, StructuredLyrics}, metadata::TrackMetadata};
+use anyhow::{Result, anyhow};
 
 /// Calculate similarity score between track metadata and search result
 pub fn calculate_similarity(metadata: &TrackMetadata, song: &Song) -> f64 {
@@ -69,8 +70,22 @@ fn is_duration_similar(duration1: u32, duration2: u32) -> bool {
 }
 
 /// Convert Navidrome lyrics to LRC format
-pub fn convert_to_lrc(lyrics: &[LyricsLine]) -> String {
-    lyrics
+/// Returns an error if lyrics are not synced (no timestamps)
+pub fn convert_to_lrc(structured_lyrics: &StructuredLyrics) -> Result<String> {
+    // Check if lyrics are synced
+    if structured_lyrics.synced == Some(false) {
+        return Err(anyhow!("Lyrics are not synced (no timestamps available)"));
+    }
+
+    let lyrics = &structured_lyrics.line;
+
+    // Check if any line has timing information
+    let has_timing = lyrics.iter().any(|line| line.start.is_some());
+    if !has_timing {
+        return Err(anyhow!("No timing information found in lyrics"));
+    }
+
+    let lrc_content = lyrics
         .iter()
         .filter_map(|line| {
             if let Some(start_ms) = line.start {
@@ -81,12 +96,18 @@ pub fn convert_to_lrc(lyrics: &[LyricsLine]) -> String {
                 let centiseconds = remaining_centiseconds % 100;
                 Some(format!("[{:02}:{:02}.{:02}]{}", minutes, seconds, centiseconds, line.value))
             } else {
-                // Lines without timestamps
-                Some(line.value.clone())
+                // Skip lines without timestamps in synced lyrics
+                None
             }
         })
         .collect::<Vec<_>>()
-        .join("\n")
+        .join("\n");
+
+    if lrc_content.trim().is_empty() {
+        return Err(anyhow!("No valid timestamped lyrics found"));
+    }
+
+    Ok(lrc_content)
 }
 
 #[cfg(test)]
@@ -153,8 +174,36 @@ mod tests {
             },
         ];
 
-        let result = convert_to_lrc(&lyrics);
+        let structured_lyrics = StructuredLyrics {
+            line: lyrics,
+            synced: Some(true),
+        };
+
+        let result = convert_to_lrc(&structured_lyrics).unwrap();
         let expected = "[00:00.00]First line\n[00:04.02]煌く水面の上を\n[00:08.64]夢中で風切り翔る\n[00:22.29]僕はそう小さなツバメ";
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_convert_to_lrc_unsynced() {
+        let lyrics = vec![
+            LyricsLine {
+                start: None,
+                value: "口だけだった 強がりだった".to_string(),
+            },
+            LyricsLine {
+                start: None,
+                value: "浅はかだった 妬み嫉みを".to_string(),
+            },
+        ];
+
+        let structured_lyrics = StructuredLyrics {
+            line: lyrics,
+            synced: Some(false),
+        };
+
+        let result = convert_to_lrc(&structured_lyrics);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not synced"));
     }
 }

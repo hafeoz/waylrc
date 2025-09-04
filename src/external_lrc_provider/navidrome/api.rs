@@ -157,8 +157,8 @@ impl NavidromeClient {
         }
 
         // Convert the first set of structured lyrics to LRC format
-        let lyrics = &lyrics_list.structured_lyrics[0].line;
-        let lrc_content = convert_to_lrc(lyrics);
+        let structured_lyrics = &lyrics_list.structured_lyrics[0];
+        let lrc_content = convert_to_lrc(structured_lyrics)?;
 
         if lrc_content.trim().is_empty() {
             warn!("Lyrics content is empty");

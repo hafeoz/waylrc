@@ -338,13 +338,84 @@ impl PlayerInformation {
         }
     }
 
+    /// Calculate the total elapsed time including accumulated time since last position update
+    #[must_use]
+    fn calculate_total_elapsed(&self) -> Duration {
+        assert!(self.position >= 0, "Negative timetag encountered");
+
+        // Only accumulate elapsed time if the player is actually playing
+        let elapsed = if matches!(self.status, Some(PlaybackStatus::Playing)) {
+            Duration::from_secs_f64(
+                self.position_last_refresh.elapsed().as_secs_f64() / self.rate.unwrap_or(1.0),
+            )
+        } else {
+            Duration::ZERO
+        };
+
+        Duration::from_micros(self.position as u64) + elapsed
+    }
+
     #[must_use]
     pub fn get_current_timetag(&self) -> TimeTag {
-        assert!(self.position >= 0, "Negative timetag encountered");
-        let elapsed = Duration::from_secs_f64(
-            self.position_last_refresh.elapsed().as_secs_f64() / self.rate.unwrap_or(1.0),
-        );
-        TimeTag(Duration::from_micros(self.position as u64) + elapsed)
+        let calculated_position = self.calculate_total_elapsed();
+
+        // Get track length from metadata to prevent position from exceeding track duration
+        let track_length = self.metadata.get("mpris:length")
+            .and_then(|value| {
+                use std::ops::Deref;
+                match value.deref() {
+                    zbus::zvariant::Value::I64(micros) => Some(Duration::from_micros(*micros as u64)),
+                    zbus::zvariant::Value::U64(micros) => Some(Duration::from_micros(*micros)),
+                    _ => None,
+                }
+            });
+
+        // If we have track length and calculated position exceeds it, clamp to track length
+        // This prevents endless time accumulation when song loops but MPRIS hasn't updated position yet
+        let final_position = if let Some(length) = track_length {
+            if calculated_position > length {
+                tracing::debug!("Position {}s exceeds track length {}s, clamping to track length",
+                              calculated_position.as_secs(), length.as_secs());
+                length
+            } else {
+                calculated_position
+            }
+        } else {
+            calculated_position
+        };
+
+        TimeTag(final_position)
+    }
+
+    /// Get the current loop count (how many times the song has looped)
+    /// Returns (loop_count, position_within_current_loop)
+    #[must_use]
+    pub fn get_loop_count(&self) -> (u32, Duration) {
+        let total_elapsed = self.calculate_total_elapsed();
+
+        // Get track length from metadata
+        let track_length = self.metadata.get("mpris:length")
+            .and_then(|value| {
+                use std::ops::Deref;
+                match value.deref() {
+                    zbus::zvariant::Value::I64(micros) => Some(Duration::from_micros(*micros as u64)),
+                    zbus::zvariant::Value::U64(micros) => Some(Duration::from_micros(*micros)),
+                    _ => None,
+                }
+            });
+
+        if let Some(length) = track_length {
+            if length.as_millis() > 0 {
+                let total_millis = total_elapsed.as_millis();
+                let length_millis = length.as_millis();
+                let loop_count = (total_millis / length_millis) as u32;
+                let position_in_loop = Duration::from_millis((total_millis % length_millis) as u64);
+                return (loop_count, position_in_loop);
+            }
+        }
+
+        // If no track length available, assume no loops
+        (0, total_elapsed)
     }
 }
 
