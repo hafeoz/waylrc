@@ -234,7 +234,7 @@ impl PlayerInformation {
         // If no local lyrics found, try external providers
         for provider in external_providers {
             match provider {
-                ExternalLrcProvider::NAVIDROME => {
+                ExternalLrcProvider::Navidrome => {
                     if let Some(config) = navidrome_config {
                         tracing::debug!("Trying to fetch lyrics from Navidrome");
 
@@ -262,9 +262,77 @@ impl PlayerInformation {
                         tracing::warn!("Navidrome provider selected but no configuration provided");
                     }
                 }
+                ExternalLrcProvider::NeteaseCloudMusic => {
+                    tracing::debug!("Trying to fetch lyrics from NetEase Cloud Music");
+
+                    use crate::external_lrc_provider::netease_cloud_music::NetEaseProvider;
+                    let netease = NetEaseProvider::new();
+
+                    // Extract title and artist from metadata
+                    let title_opt = self
+                        .metadata
+                        .get("xesam:title")
+                        .and_then(|v| extract_str(v))
+                        .map(|s| s.to_string());
+
+                    let artist_opt = self.metadata.get("xesam:artist").and_then(|v| {
+                        match v.downcast_ref::<Value>() {
+                            Ok(Value::Array(arr)) => {
+                                let artists: Vec<String> = arr
+                                    .iter()
+                                    .filter_map(|v| extract_str(v))
+                                    .map(|s| s.to_string())
+                                    .collect();
+                                if artists.is_empty() {
+                                    None
+                                } else {
+                                    Some(artists.join(", "))
+                                }
+                            }
+                            _ => extract_str(v).map(|s| s.to_string()),
+                        }
+                    });
+
+                    if let (Some(title), Some(artist)) = (title_opt, artist_opt) {
+                        if !title.is_empty() && !artist.is_empty() {
+                            match netease.search_and_get_lyrics(&title, &artist, None).await {
+                                Ok(lrc_lines) => {
+                                    tracing::info!(
+                                        "Successfully fetched lyrics from NetEase Cloud Music"
+                                    );
+
+                                    // Convert LrcLine vector to Lrc format
+                                    use std::collections::BTreeMap;
+                                    let mut lrc_map = BTreeMap::new();
+
+                                    for lrc_line in lrc_lines {
+                                        if let Some(time_tag) = lrc_line.time.first() {
+                                            lrc_map.insert(*time_tag, lrc_line.text);
+                                        }
+                                    }
+
+                                    return Some(Ok(crate::lrc::Lrc(vec![lrc_map])));
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        "Failed to fetch lyrics from NetEase Cloud Music: {:?}",
+                                        e
+                                    );
+                                }
+                            }
+                        } else {
+                            tracing::warn!(
+                                "Cannot search NetEase: missing title or artist information"
+                            );
+                        }
+                    } else {
+                        tracing::warn!(
+                            "Cannot search NetEase: missing title or artist information"
+                        );
+                    }
+                }
             }
         }
-
         None
     }
 }
@@ -360,14 +428,16 @@ impl PlayerInformation {
         let calculated_position = self.calculate_total_elapsed();
 
         // Get track length from metadata to prevent position from exceeding track duration
-        let track_length = self.metadata.get("mpris:length").and_then(|value| {
-            use std::ops::Deref;
-            match value.deref() {
-                zbus::zvariant::Value::I64(micros) => Some(Duration::from_micros(*micros as u64)),
-                zbus::zvariant::Value::U64(micros) => Some(Duration::from_micros(*micros)),
-                _ => None,
-            }
-        });
+        let track_length =
+            self.metadata
+                .get("mpris:length")
+                .and_then(|value| match value.deref() {
+                    zbus::zvariant::Value::I64(micros) => {
+                        Some(Duration::from_micros(*micros as u64))
+                    }
+                    zbus::zvariant::Value::U64(micros) => Some(Duration::from_micros(*micros)),
+                    _ => None,
+                });
 
         // If we have track length and calculated position exceeds it, clamp to track length
         // This prevents endless time accumulation when song loops but MPRIS hasn't updated position yet

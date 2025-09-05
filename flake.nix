@@ -47,6 +47,9 @@
               src = ./.;
               cargoLock = {
                 lockFile = ./Cargo.lock;
+                outputHashes = {
+                  "netease-cloud-music-api-1.5.1" = "sha256-PFzXm7jgNsEJiluBaNuhSF0kg/licDdbItMDWmfIBDk=";
+                };
               };
               nativeBuildInputs = with pkgs; [
                 pkg-config

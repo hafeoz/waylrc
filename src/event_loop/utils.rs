@@ -38,7 +38,7 @@ pub fn setup_navidrome_config(
     navidrome_username: Option<String>,
     navidrome_password: Option<String>,
 ) -> Option<NavidromeConfig> {
-    if external_lrc_providers.contains(&ExternalLrcProvider::NAVIDROME) {
+    if external_lrc_providers.contains(&ExternalLrcProvider::Navidrome) {
         match (navidrome_server_url, navidrome_username, navidrome_password) {
             (Some(server_url), Some(username), Some(password)) => Some(NavidromeConfig {
                 server_url,
