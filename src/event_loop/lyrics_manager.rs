@@ -33,7 +33,7 @@ pub struct LyricsManager {
     pub current_player_timer: Pin<Box<Either<Sleep, Pending<()>>>>,
     pub last_known_position: Option<Duration>,
     pub current_track_id: Option<String>, // Track the current song to reset loop detection on track change
-    pub last_loop_count: Option<u32>, // Track the loop count to detect song loops
+    pub last_loop_count: Option<u32>,     // Track the loop count to detect song loops
 }
 
 impl LyricsManager {
@@ -57,7 +57,12 @@ impl LyricsManager {
         WaybarCustomModule::empty().print().unwrap();
     }
 
-    pub fn detect_loop_restart(&self, current_pos: Duration, is_position_update: bool, is_metadata_update: bool) -> bool {
+    pub fn detect_loop_restart(
+        &self,
+        current_pos: Duration,
+        is_position_update: bool,
+        is_metadata_update: bool,
+    ) -> bool {
         // DEBUG: Always log function entry
         tracing::info!("[DEBUG] detect_loop_restart called - current_pos: {}s, is_position_update: {}, is_metadata_update: {}",
                      current_pos.as_secs(), is_position_update, is_metadata_update);
@@ -73,16 +78,18 @@ impl LyricsManager {
         }
 
         // Traditional loop detection: position near beginning after being well into the song
-        let traditional_loop = current_pos < Duration::from_secs(15) &&
-            self.last_known_position.map_or(false, |prev| prev > Duration::from_secs(60));
+        let traditional_loop = current_pos < Duration::from_secs(15)
+            && self
+                .last_known_position
+                .map_or(false, |prev| prev > Duration::from_secs(60));
 
         // Special case: lyrics have ended and position moved backwards significantly
-        let lyrics_ended_loop = self.current_player.as_ref()
-            .map_or(false, |p| p.next_lrc_timetag == TimeTag::from(Duration::from_secs(u64::MAX))) &&
-            self.last_known_position.map_or(false, |prev| {
-                // If position moved backwards by more than 30 seconds, consider it a loop restart
-                prev > current_pos && (prev - current_pos) > Duration::from_secs(30)
-            });
+        let lyrics_ended_loop = self.current_player.as_ref().map_or(false, |p| {
+            p.next_lrc_timetag == TimeTag::from(Duration::from_secs(u64::MAX))
+        }) && self.last_known_position.map_or(false, |prev| {
+            // If position moved backwards by more than 30 seconds, consider it a loop restart
+            prev > current_pos && (prev - current_pos) > Duration::from_secs(30)
+        });
 
         tracing::info!("[DEBUG] Traditional loop check: current_pos < 15s? {}, last_known > 60s? {}, result: {}",
                      current_pos < Duration::from_secs(15),
@@ -95,21 +102,26 @@ impl LyricsManager {
                      lyrics_ended_loop);
 
         if traditional_loop {
-            tracing::debug!("Traditional loop detected: current={}s, previous={}s",
-                          current_pos.as_secs(),
-                          self.last_known_position.map(|p| p.as_secs()).unwrap_or(0));
+            tracing::debug!(
+                "Traditional loop detected: current={}s, previous={}s",
+                current_pos.as_secs(),
+                self.last_known_position.map(|p| p.as_secs()).unwrap_or(0)
+            );
         }
 
         if lyrics_ended_loop {
-            tracing::debug!("Lyrics-ended loop detected: current={}s, previous={}s",
-                          current_pos.as_secs(),
-                          self.last_known_position.map(|p| p.as_secs()).unwrap_or(0));
+            tracing::debug!(
+                "Lyrics-ended loop detected: current={}s, previous={}s",
+                current_pos.as_secs(),
+                self.last_known_position.map(|p| p.as_secs()).unwrap_or(0)
+            );
         }
 
         let result = traditional_loop || lyrics_ended_loop;
         tracing::info!("[DEBUG] detect_loop_restart returning: {}", result);
         result
-    }    pub fn refresh_lyrics_display(
+    }
+    pub fn refresh_lyrics_display(
         &mut self,
         bus: Arc<OwnedBusName>,
         lrc: Lrc,
@@ -117,12 +129,19 @@ impl LyricsManager {
         filter_keys: &HashSet<String>,
         track_id: Option<String>,
     ) {
-        tracing::info!("Refreshing lyrics display for: {} (track_id: {:?})", bus, track_id);
+        tracing::info!(
+            "Refreshing lyrics display for: {} (track_id: {:?})",
+            bus,
+            track_id
+        );
 
         // Reset loop detection state if track changed
         if self.current_track_id != track_id {
-            tracing::info!("Track changed, resetting loop detection state: {:?} -> {:?}",
-                          self.current_track_id, track_id);
+            tracing::info!(
+                "Track changed, resetting loop detection state: {:?} -> {:?}",
+                self.current_track_id,
+                track_id
+            );
             self.last_known_position = None;
             self.current_track_id = track_id;
         }
@@ -132,7 +151,9 @@ impl LyricsManager {
 
         // Handle position beyond song length (common during loops)
         // Get the track length from metadata if available
-        let track_length_micros = info.metadata.get("mpris:length")
+        let track_length_micros = info
+            .metadata
+            .get("mpris:length")
             .and_then(extract_u64_from_value);
 
         let mut is_loop_restart = false;
@@ -151,9 +172,12 @@ impl LyricsManager {
 
         // Also check if we were at the end and now we're at the beginning (another loop indicator)
         let current_duration: Duration = current_timetag.into();
-        if !is_loop_restart &&
-           current_duration < Duration::from_secs(10) &&
-           self.current_player.as_ref().map_or(false, |p| p.next_lrc_timetag == TimeTag::from(Duration::from_secs(u64::MAX))) {
+        if !is_loop_restart
+            && current_duration < Duration::from_secs(10)
+            && self.current_player.as_ref().map_or(false, |p| {
+                p.next_lrc_timetag == TimeTag::from(Duration::from_secs(u64::MAX))
+            })
+        {
             tracing::info!(%bus, current_pos_secs = current_duration.as_secs(),
                          "Position near beginning after being at end, detecting as loop restart");
             is_loop_restart = true;
@@ -204,7 +228,12 @@ impl LyricsManager {
         self.current_player_timer = Box::pin(Either::Left(sleep(till_next_timetag)));
     }
 
-    pub fn update_position(&mut self, current_pos: Duration, is_position_update: bool, is_metadata_update: bool) {
+    pub fn update_position(
+        &mut self,
+        current_pos: Duration,
+        is_position_update: bool,
+        is_metadata_update: bool,
+    ) {
         // Always update the last known position when we have current position info
         if is_position_update || is_metadata_update {
             self.last_known_position = Some(current_pos);

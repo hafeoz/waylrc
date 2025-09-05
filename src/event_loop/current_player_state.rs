@@ -1,6 +1,6 @@
+use crate::lrc::{Lrc, TimeTag};
 use std::sync::Arc;
 use zbus::names::OwnedBusName;
-use crate::lrc::{Lrc, TimeTag};
 
 pub struct CurrentPlayerState {
     pub bus: Arc<OwnedBusName>,

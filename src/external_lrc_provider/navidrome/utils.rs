@@ -1,5 +1,8 @@
-use crate::external_lrc_provider::navidrome::{types::{Song, StructuredLyrics}, metadata::TrackMetadata};
-use anyhow::{Result, anyhow};
+use crate::external_lrc_provider::navidrome::{
+    metadata::TrackMetadata,
+    types::{Song, StructuredLyrics},
+};
+use anyhow::{anyhow, Result};
 
 /// Calculate similarity score between track metadata and search result
 pub fn calculate_similarity(metadata: &TrackMetadata, song: &Song) -> f64 {
@@ -94,7 +97,10 @@ pub fn convert_to_lrc(structured_lyrics: &StructuredLyrics) -> Result<String> {
                 let remaining_centiseconds = total_centiseconds % 6000;
                 let seconds = remaining_centiseconds / 100;
                 let centiseconds = remaining_centiseconds % 100;
-                Some(format!("[{:02}:{:02}.{:02}]{}", minutes, seconds, centiseconds, line.value))
+                Some(format!(
+                    "[{:02}:{:02}.{:02}]{}",
+                    minutes, seconds, centiseconds, line.value
+                ))
             } else {
                 // Skip lines without timestamps in synced lyrics
                 None
@@ -113,7 +119,10 @@ pub fn convert_to_lrc(structured_lyrics: &StructuredLyrics) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::external_lrc_provider::navidrome::{types::{Song, LyricsLine}, metadata::TrackMetadata};
+    use crate::external_lrc_provider::navidrome::{
+        metadata::TrackMetadata,
+        types::{LyricsLine, Song},
+    };
 
     #[test]
     fn test_is_similar() {

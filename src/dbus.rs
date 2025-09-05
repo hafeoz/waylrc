@@ -44,14 +44,16 @@ impl BusChange {
         }
 
         // Extract player name from bus name (e.g., "org.mpris.MediaPlayer2.vlc" -> "vlc")
-        let player_name = self.name.strip_prefix("org.mpris.MediaPlayer2.")
+        let player_name = self
+            .name
+            .strip_prefix("org.mpris.MediaPlayer2.")
             .unwrap_or(self.name.as_str());
 
         // Check if any of the specified players match
         players.iter().any(|p| {
-            player_name == p ||
-            player_name.to_lowercase() == p.to_lowercase() ||
-            self.name.as_str() == format!("org.mpris.MediaPlayer2.{}", p)
+            player_name == p
+                || player_name.to_lowercase() == p.to_lowercase()
+                || self.name.as_str() == format!("org.mpris.MediaPlayer2.{}", p)
         })
     }
 }

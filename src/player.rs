@@ -360,22 +360,24 @@ impl PlayerInformation {
         let calculated_position = self.calculate_total_elapsed();
 
         // Get track length from metadata to prevent position from exceeding track duration
-        let track_length = self.metadata.get("mpris:length")
-            .and_then(|value| {
-                use std::ops::Deref;
-                match value.deref() {
-                    zbus::zvariant::Value::I64(micros) => Some(Duration::from_micros(*micros as u64)),
-                    zbus::zvariant::Value::U64(micros) => Some(Duration::from_micros(*micros)),
-                    _ => None,
-                }
-            });
+        let track_length = self.metadata.get("mpris:length").and_then(|value| {
+            use std::ops::Deref;
+            match value.deref() {
+                zbus::zvariant::Value::I64(micros) => Some(Duration::from_micros(*micros as u64)),
+                zbus::zvariant::Value::U64(micros) => Some(Duration::from_micros(*micros)),
+                _ => None,
+            }
+        });
 
         // If we have track length and calculated position exceeds it, clamp to track length
         // This prevents endless time accumulation when song loops but MPRIS hasn't updated position yet
         let final_position = if let Some(length) = track_length {
             if calculated_position > length {
-                tracing::debug!("Position {}s exceeds track length {}s, clamping to track length",
-                              calculated_position.as_secs(), length.as_secs());
+                tracing::debug!(
+                    "Position {}s exceeds track length {}s, clamping to track length",
+                    calculated_position.as_secs(),
+                    length.as_secs()
+                );
                 length
             } else {
                 calculated_position
@@ -394,15 +396,14 @@ impl PlayerInformation {
         let total_elapsed = self.calculate_total_elapsed();
 
         // Get track length from metadata
-        let track_length = self.metadata.get("mpris:length")
-            .and_then(|value| {
-                use std::ops::Deref;
-                match value.deref() {
-                    zbus::zvariant::Value::I64(micros) => Some(Duration::from_micros(*micros as u64)),
-                    zbus::zvariant::Value::U64(micros) => Some(Duration::from_micros(*micros)),
-                    _ => None,
-                }
-            });
+        let track_length = self.metadata.get("mpris:length").and_then(|value| {
+            use std::ops::Deref;
+            match value.deref() {
+                zbus::zvariant::Value::I64(micros) => Some(Duration::from_micros(*micros as u64)),
+                zbus::zvariant::Value::U64(micros) => Some(Duration::from_micros(*micros)),
+                _ => None,
+            }
+        });
 
         if let Some(length) = track_length {
             if length.as_millis() > 0 {

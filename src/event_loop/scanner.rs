@@ -33,7 +33,10 @@ pub async fn find_active_player_with_lyrics(
         }
 
         // Try to get lyrics with external provider support
-        if let Some(Ok(lrc)) = player.get_lyrics_with_external(external_providers, navidrome_config).await {
+        if let Some(Ok(lrc)) = player
+            .get_lyrics_with_external(external_providers, navidrome_config)
+            .await
+        {
             return Some((Arc::clone(name), lrc));
         }
     }

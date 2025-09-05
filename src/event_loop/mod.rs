@@ -23,8 +23,8 @@ use crate::{
     player::PlayerInformation,
 };
 
-use lyrics_manager::LyricsManager;
 use loop_check_handler::handle_loop_check_timer;
+use lyrics_manager::LyricsManager;
 use player_update_handler::handle_player_update;
 use utils::*;
 

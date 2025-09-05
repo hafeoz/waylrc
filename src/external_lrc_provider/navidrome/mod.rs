@@ -3,14 +3,14 @@ pub mod metadata;
 pub mod types;
 pub mod utils;
 
-use std::collections::HashMap;
-use zbus::zvariant::Value;
 use anyhow::Result;
+use std::collections::HashMap;
 use tracing::{debug, warn};
+use zbus::zvariant::Value;
 
 // Re-export main functionality
 pub use api::NavidromeClient;
-pub use metadata::{extract_metadata};
+pub use metadata::extract_metadata;
 pub use types::NavidromeConfig;
 
 /// Fetch lyrics from Navidrome server using MPRIS metadata

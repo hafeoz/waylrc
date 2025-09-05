@@ -1,12 +1,12 @@
-use std::collections::HashMap;
-use anyhow::{Result, anyhow};
-use reqwest::Client;
+use anyhow::{anyhow, Result};
 use md5;
-use tracing::{debug, warn, error};
+use reqwest::Client;
+use std::collections::HashMap;
+use tracing::{debug, error, warn};
 
 use crate::external_lrc_provider::navidrome::{
-    types::*,
     metadata::TrackMetadata,
+    types::*,
     utils::{calculate_similarity, convert_to_lrc},
 };
 
@@ -27,7 +27,10 @@ impl NavidromeClient {
 
     /// Fetch lyrics for the given track metadata
     pub async fn fetch_lyrics(&self, metadata: &TrackMetadata) -> Result<String> {
-        debug!("Fetching lyrics for: {} - {}", metadata.artist, metadata.title);
+        debug!(
+            "Fetching lyrics for: {} - {}",
+            metadata.artist, metadata.title
+        );
 
         // First, search for the song to get its ID
         let song_id = self.search_song(metadata).await?;
@@ -53,11 +56,7 @@ impl NavidromeClient {
         debug!("Search URL: {}", url);
         debug!("Search params: {:?}", params);
 
-        let response = self.client
-            .get(&url)
-            .query(&params)
-            .send()
-            .await?;
+        let response = self.client.get(&url).query(&params).send().await?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -73,7 +72,9 @@ impl NavidromeClient {
             return Err(anyhow!("Search API returned error status"));
         }
 
-        let search_result = search_response.subsonic_response.search_result3
+        let search_result = search_response
+            .subsonic_response
+            .search_result3
             .ok_or_else(|| anyhow!("No search results"))?;
 
         if search_result.song.is_empty() {
@@ -84,12 +85,15 @@ impl NavidromeClient {
         let mut best_match: Option<(&Song, f64)> = None;
         for song in &search_result.song {
             let similarity = calculate_similarity(metadata, song);
-            debug!("Song: {} - {} (similarity: {:.2})",
-                   song.artist.as_deref().unwrap_or("Unknown"),
-                   song.title,
-                   similarity);
+            debug!(
+                "Song: {} - {} (similarity: {:.2})",
+                song.artist.as_deref().unwrap_or("Unknown"),
+                song.title,
+                similarity
+            );
 
-            if similarity > 0.5 { // Only consider songs with >50% similarity
+            if similarity > 0.5 {
+                // Only consider songs with >50% similarity
                 if let Some((_, best_score)) = best_match {
                     if similarity > best_score {
                         best_match = Some((song, similarity));
@@ -101,10 +105,12 @@ impl NavidromeClient {
         }
 
         if let Some((song, score)) = best_match {
-            debug!("Selected song: {} - {} (score: {:.2})",
-                   song.artist.as_deref().unwrap_or("Unknown"),
-                   song.title,
-                   score);
+            debug!(
+                "Selected song: {} - {} (score: {:.2})",
+                song.artist.as_deref().unwrap_or("Unknown"),
+                song.title,
+                score
+            );
             Ok(song.id.clone())
         } else {
             Err(anyhow!("No suitable match found"))
@@ -116,10 +122,7 @@ impl NavidromeClient {
         let url = format!("{}/rest/getLyricsBySongId", self.config.server_url);
 
         let auth_params = self.generate_auth_params();
-        let mut params = vec![
-            ("id", song_id),
-            ("f", "json"),
-        ];
+        let mut params = vec![("id", song_id), ("f", "json")];
         params.extend(auth_params.iter().map(|(k, v)| (k.as_str(), v.as_str())));
 
         debug!("Lyrics URL: {}", url);
@@ -129,11 +132,7 @@ impl NavidromeClient {
         let curl_cmd = self.generate_curl_command(&url, &params);
         debug!("Equivalent curl command: {}", curl_cmd);
 
-        let response = self.client
-            .get(&url)
-            .query(&params)
-            .send()
-            .await?;
+        let response = self.client.get(&url).query(&params).send().await?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -149,7 +148,9 @@ impl NavidromeClient {
             return Err(anyhow!("Lyrics API returned error status"));
         }
 
-        let lyrics_list = lyrics_response.subsonic_response.lyrics_list
+        let lyrics_list = lyrics_response
+            .subsonic_response
+            .lyrics_list
             .ok_or_else(|| anyhow!("No lyrics found"))?;
 
         if lyrics_list.structured_lyrics.is_empty() {

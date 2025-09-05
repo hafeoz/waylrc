@@ -1,6 +1,6 @@
+use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 use zbus::zvariant::Value;
-use anyhow::{Result, anyhow};
 
 /// Extracted track metadata from MPRIS
 #[derive(Debug, Clone)]
@@ -28,7 +28,8 @@ pub fn extract_metadata(metadata: &HashMap<String, Value>) -> Result<TrackMetada
 
 /// Get string value from metadata, handling both String and Array<String> types
 fn get_string_value(metadata: &HashMap<String, Value>, key: &str) -> Result<String> {
-    let value = metadata.get(key)
+    let value = metadata
+        .get(key)
         .ok_or_else(|| anyhow!("Missing key: {}", key))?;
 
     match value {
@@ -44,7 +45,11 @@ fn get_string_value(metadata: &HashMap<String, Value>, key: &str) -> Result<Stri
                     }
                 }
                 Ok(None) => Err(anyhow!("Empty array for key: {}", key)),
-                Err(e) => Err(anyhow!("Failed to access array element for key {}: {}", key, e)),
+                Err(e) => Err(anyhow!(
+                    "Failed to access array element for key {}: {}",
+                    key,
+                    e
+                )),
             }
         }
         _ => Err(anyhow!("Unsupported value type for key: {}", key)),
