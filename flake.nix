@@ -44,7 +44,7 @@
         {
           packages = rec {
             default = waylrc;
-            waylrc = pkgs.rustPlatform.buildRustPackage (finalAttrs: {
+            waylrc = pkgs.rustPlatform.buildRustPackage (finalAttrs: rec {
               pname = "waylrc";
               version = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).package.version;
               src = ./.;
@@ -63,6 +63,7 @@
               PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
               meta = {
                 description = "An addon for waybar to display lyrics";
+                mainProgram = pname;
                 homepage = "https://github.com/hafeoz/waylrc";
                 license = with lib.licenses; [
                   bsd0
