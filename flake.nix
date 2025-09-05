@@ -24,11 +24,14 @@
 
   outputs =
     inputs@{ flake-parts, devenv-root, ... }:
+    let
+      inherit (inputs.nixpkgs) lib;
+    in
     flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
         inputs.devenv.flakeModule
       ];
-      systems = [ "x86_64-linux" ];
+      systems = lib.systems.flakeExposed;
       perSystem =
         {
           config,
@@ -61,12 +64,12 @@
               meta = {
                 description = "An addon for waybar to display lyrics";
                 homepage = "https://github.com/hafeoz/waylrc";
-                license = with pkgs.lib.licenses; [
+                license = with lib.licenses; [
                   bsd0
                   cc0
                   wtfpl
                 ];
-                platforms = pkgs.lib.platforms.linux;
+                platforms = lib.platforms.linux;
               };
             });
           };
