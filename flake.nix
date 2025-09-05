@@ -31,7 +31,7 @@
       imports = [
         inputs.devenv.flakeModule
       ];
-      systems = lib.systems.flakeExposed;
+      systems = builtins.filter (sys: lib.strings.hasSuffix "linux" sys) lib.systems.flakeExposed;
       perSystem =
         {
           config,
